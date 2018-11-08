@@ -227,8 +227,6 @@
 #-XX:ConcGCThreads=16
 
 -Dcassandra.max_queued_native_transport_requests=6144
-
--javaagent:/usr/local/share/jolokia-agent.jar=host=0.0.0.0
 -javaagent:/usr/local/share/prometheus-agent.jar=0.0.0.0:1234:/etc/cassandra/prometheus.yaml
 
 # Debug

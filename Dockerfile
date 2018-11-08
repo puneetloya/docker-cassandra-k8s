@@ -33,15 +33,12 @@ ENV \
     CASSANDRA_CONF=/etc/cassandra \
     CASSANDRA_DATA=/var/lib/cassandra \
     CASSANDRA_LOGS=/var/log/cassandra \
-    CASSANDRA_RELEASE=3.11.0 \
-    CASSANDRA_SHA=d597b99b402bd2cf925033519db9e58340acb893fd83d600d904ba4041d44fa7 \
+    CASSANDRA_RELEASE=3.11.3 \
+    CASSANDRA_SHA=d82e0670cb41b091e88fff55250ce945c4ea026c87a5517d3cf7b6b351d5e2ba \
     JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
     DI_VERSION=1.2.0 \
     DI_SHA=81231da1cd074fdc81af62789fead8641ef3f24b6b07366a1c34e5b059faf363 \
-    JOLOKIA_VERSION=1.3.5 \
-    JOLOKIA_SHA=90907e9d1aa8799252c08cd5ec67d805b2661ad6e773d0de9c8e3d1620b72369 \
-    PROMETHEUS_VERSION=0.8 \
-    PROMETHEUS_SHA=c32440e4a98b441b4ab66a788df77494d32e1560e0f3bb5342752bf064408520 \
+    PROMETHEUS_VERSION=0.3.1 \
     LOGENCODER_VERSION=4.10-SNAPSHOT \
     LOGENCODER_SHA=89be27bea7adc05b68c052a27b08c594a9f8e354185acbfd7a7b5f04c7cd9e20
 
@@ -52,16 +49,13 @@ RUN \
     && echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections \
     && export CASSANDRA_VERSION=${CASSANDRA_VERSION:-$CASSANDRA_RELEASE} \
     && export CASSANDRA_HOME=/usr/local/apache-cassandra-${CASSANDRA_VERSION} \
-    && apt-get update && apt-get -qq -y --force-yes install --no-install-recommends \
+    && apt-get update && apt-get -qq -y install --no-install-recommends \
         openjdk-8-jre-headless \
         libjemalloc1 \
         localepurge \
         wget \
         jq \
-    && wget -q -O - "http://search.maven.org/remotecontent?filepath=io/prometheus/jmx/jmx_prometheus_javaagent/${PROMETHEUS_VERSION}/jmx_prometheus_javaagent-${PROMETHEUS_VERSION}.jar" > /usr/local/share/prometheus-agent.jar \
-    && echo "$PROMETHEUS_SHA /usr/local/share/prometheus-agent.jar" | sha256sum -c - \
-    && wget -q -O - "http://search.maven.org/remotecontent?filepath=org/jolokia/jolokia-jvm/${JOLOKIA_VERSION}/jolokia-jvm-${JOLOKIA_VERSION}-agent.jar" > /usr/local/share/jolokia-agent.jar \
-    && echo "$JOLOKIA_SHA  /usr/local/share/jolokia-agent.jar" | sha256sum -c - \
+    && wget -q -O - "http://central.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${PROMETHEUS_VERSION}/jmx_prometheus_javaagent-${PROMETHEUS_VERSION}.jar" > /usr/local/share/prometheus-agent.jar \
     && mirror_url=$( wget -q -O - 'https://www.apache.org/dyn/closer.cgi?as_json=1' | jq --raw-output '.preferred' ) \
     && wget -q -O - ${mirror_url}/cassandra/${CASSANDRA_VERSION}/apache-cassandra-${CASSANDRA_VERSION}-bin.tar.gz > /usr/local/apache-cassandra-bin.tar.gz \
     && echo "$CASSANDRA_SHA /usr/local/apache-cassandra-bin.tar.gz" | sha256sum -c - \

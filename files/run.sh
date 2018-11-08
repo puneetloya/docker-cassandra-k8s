@@ -208,36 +208,30 @@ fi
 sed -ri 's/.*cassandra_parms=.*-Dlogback.configurationFile.*//' $CASSANDRA_BIN
 sed -ri 's/.*cassandra_parms=.*-Dcassandra.logdir.*//' $CASSANDRA_BIN
 echo "-Dcassandra.logdir=${CASSANDRA_LOG_PATH}" >> $CASSANDRA_CONF_DIR/jvm.options
-if [[ $CASSANDRA_LOG_TO_FILES == 'true' ]]; then
-  if [[ $CASSANDRA_LOG_JSON == 'true' ]]; then
-    echo "-Dlogback.configurationFile=${CASSANDRA_CONF_DIR}/logback-json-files.xml" >> $CASSANDRA_CONF_DIR/jvm.options
+# if [[ $CASSANDRA_LOG_TO_FILES == 'true' ]]; then
+#   if [[ $CASSANDRA_LOG_JSON == 'true' ]]; then
+#     echo "-Dlogback.configurationFile=${CASSANDRA_CONF_DIR}/logback-json-files.xml" >> $CASSANDRA_CONF_DIR/jvm.options
+#   else
+#     echo "-Dlogback.configurationFile=${CASSANDRA_CONF_DIR}/logback-files.xml" >> $CASSANDRA_CONF_DIR/jvm.options
+#   fi
+# else
+#   if [[ $CASSANDRA_LOG_JSON == 'true' ]]; then
+#     echo "-Dlogback.configurationFile=${CASSANDRA_CONF_DIR}/logback-json-stdout.xml" >> $CASSANDRA_CONF_DIR/jvm.options
+#   else
+#     echo "-Dlogback.configurationFile=${CASSANDRA_CONF_DIR}/logback-stdout.xml" >> $CASSANDRA_CONF_DIR/jvm.options
+#   fi
+# fi
+if [[ $CASSANDRA_LOG_JSON == 'true' ]]; then
+  if [[ $CASSANDRA_LOGGER_XML_PATH ]]; then
+    echo "-Dlogback.configurationFile=${CASSANDRA_LOGGER_XML_PATH}" >> $CASSANDRA_CONF_DIR/jvm.options
   else
-    echo "-Dlogback.configurationFile=${CASSANDRA_CONF_DIR}/logback-files.xml" >> $CASSANDRA_CONF_DIR/jvm.options
-  fi
-else
-  if [[ $CASSANDRA_LOG_JSON == 'true' ]]; then
     echo "-Dlogback.configurationFile=${CASSANDRA_CONF_DIR}/logback-json-stdout.xml" >> $CASSANDRA_CONF_DIR/jvm.options
-  else
-    echo "-Dlogback.configurationFile=${CASSANDRA_CONF_DIR}/logback-stdout.xml" >> $CASSANDRA_CONF_DIR/jvm.options
   fi
 fi
 
 # getting WARNING messages with Migration Service
 echo "-Dcassandra.migration_task_wait_in_seconds=${CASSANDRA_MIGRATION_WAIT}" >> $CASSANDRA_CONF_DIR/jvm.options
 echo "-Dcassandra.ring_delay_ms=${CASSANDRA_RING_DELAY}" >> $CASSANDRA_CONF_DIR/jvm.options
-
-if [[ $CASSANDRA_OPEN_JMX == 'true' ]]; then
-  export LOCAL_JMX=no
-  sed -ri 's/ -Dcom\.sun\.management\.jmxremote\.authenticate=true/ -Dcom\.sun\.management\.jmxremote\.authenticate=false/' $CASSANDRA_CONF_DIR/cassandra-env.sh
-  sed -ri 's/ -Dcom\.sun\.management\.jmxremote\.password\.file=\/etc\/cassandra\/jmxremote\.password//' $CASSANDRA_CONF_DIR/cassandra-env.sh
-
-  echo "JVM_OPTS=\"\$JVM_OPTS -Dcom.sun.management.jmxremote\"" >> $CASSANDRA_CONF_DIR/cassandra-env.sh
-  echo "JVM_OPTS=\"\$JVM_OPTS -Dcom.sun.management.jmxremote.ssl=false\"" >> $CASSANDRA_CONF_DIR/cassandra-env.sh
-  echo "JVM_OPTS=\"\$JVM_OPTS -Dcom.sun.management.jmxremote.local.only=false\"" >> $CASSANDRA_CONF_DIR/cassandra-env.sh
-  echo "JVM_OPTS=\"\$JVM_OPTS -Dcom.sun.management.jmxremote.port=7199\"" >> $CASSANDRA_CONF_DIR/cassandra-env.sh
-  echo "JVM_OPTS=\"\$JVM_OPTS -Dcom.sun.management.jmxremote.rmi.port=7199\"" >> $CASSANDRA_CONF_DIR/cassandra-env.sh
-  echo "JVM_OPTS=\"\$JVM_OPTS -Djava.rmi.server.hostname=$POD_IP\"" >> $CASSANDRA_CONF_DIR/cassandra-env.sh
-fi
 
 chmod 700 "${CASSANDRA_DATA}"
 chmod 700 "${CASSANDRA_LOG_PATH}"
