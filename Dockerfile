@@ -34,6 +34,7 @@ ENV \
     CASSANDRA_DATA=/var/lib/cassandra \
     CASSANDRA_LOGS=/var/log/cassandra \
     CASSANDRA_RELEASE=3.11.3 \
+    CASSANDRA_PATH=/usr/local/apache-cassandra \
     CASSANDRA_SHA=d82e0670cb41b091e88fff55250ce945c4ea026c87a5517d3cf7b6b351d5e2ba \
     JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
     DI_VERSION=1.2.0 \
@@ -41,8 +42,6 @@ ENV \
     PROMETHEUS_VERSION=0.3.1 \
     LOGENCODER_VERSION=4.10-SNAPSHOT \
     LOGENCODER_SHA=89be27bea7adc05b68c052a27b08c594a9f8e354185acbfd7a7b5f04c7cd9e20
-
-COPY files /
 
 RUN \
     set -ex \
@@ -61,17 +60,11 @@ RUN \
     && echo "$CASSANDRA_SHA /usr/local/apache-cassandra-bin.tar.gz" | sha256sum -c - \
     && tar -xzf /usr/local/apache-cassandra-bin.tar.gz -C /usr/local \
     && rm /usr/local/apache-cassandra-bin.tar.gz \
-    && ln -s $CASSANDRA_HOME /usr/local/apache-cassandra \
+    && ln -s $CASSANDRA_HOME $CASSANDRA_PATH \
     && wget -q -O - "https://github.com/mstump/logstash-logback-encoder/releases/download/${LOGENCODER_VERSION}/logstash-logback-encoder-${LOGENCODER_VERSION}.jar" > /usr/local/apache-cassandra/lib/log-encoder.jar \
     && echo "$LOGENCODER_SHA /usr/local/apache-cassandra/lib/log-encoder.jar" | sha256sum -c - \
     && wget -q -O - https://github.com/Yelp/dumb-init/releases/download/v${DI_VERSION}/dumb-init_${DI_VERSION}_amd64 > /sbin/dumb-init \
     && echo "$DI_SHA  /sbin/dumb-init" | sha256sum -c - \
-    && adduser --disabled-password --no-create-home --gecos '' --disabled-login cassandra \
-    && mkdir -p /var/lib/cassandra/ /var/log/cassandra/ /etc/cassandra/triggers \
-    && chmod +x /sbin/dumb-init /ready-probe.sh \
-    && mv /logback-stdout.xml /logback-json-files.xml /logback-json-stdout.xml /logback-files.xml /cassandra.yaml /jvm.options /prometheus.yaml /etc/cassandra/ \
-    && mv /usr/local/apache-cassandra/conf/cassandra-env.sh /etc/cassandra/ \
-    && chown cassandra: /ready-probe.sh \
     && if [ -n "$DEV_CONTAINER" ]; then apt-get -y --no-install-recommends install python; else rm -rf  $CASSANDRA_HOME/pylib; fi \
     && apt-get -y purge wget jq localepurge \
     && apt-get -y autoremove \
@@ -131,6 +124,26 @@ RUN \
         /usr/lib/jvm/java-8-openjdk-amd64/man \
         /usr/lib/jvm/java-8-openjdk-amd64/jre/THIRD_PARTY_README \
         /usr/lib/jvm/java-8-openjdk-amd64/jre/ASSEMBLY_EXCEPTION
+
+COPY files /
+
+RUN \
+    adduser -u 1099 --disabled-password --gecos '' --disabled-login cassandra \
+    && mkdir -p /var/lib/cassandra/ /var/log/cassandra/ /etc/cassandra/triggers \
+    && chmod +x /sbin/dumb-init /ready-probe.sh \
+    && mv /logback-stdout.xml /logback-json-files.xml /logback-json-stdout.xml /logback-files.xml /cassandra.yaml /jvm.options /prometheus.yaml /etc/cassandra/ \
+    && mv /usr/local/apache-cassandra/conf/cassandra-env.sh /etc/cassandra/ \
+    && chown cassandra: /ready-probe.sh \
+    && cat /cassandra.rc >> /home/cassandra/.bashrc \
+    && echo 'export ENV=$HOME/.bashrc' >> "$HOME/.profile" \
+    && chown -c -R cassandra:cassandra "${CASSANDRA_DATA}" "${CASSANDRA_CONF}" "${CASSANDRA_LOGS}" "/usr/local/apache-cassandra-${CASSANDRA_RELEASE}"
+
+# adding ascp for backup
+
+ADD ascp /bin/ascp
+ADD restore.sh /
+ADD clean-up.sh /
+ADD backup.key /
 
 VOLUME ["/var/lib/cassandra"]
 

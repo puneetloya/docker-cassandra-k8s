@@ -102,6 +102,8 @@ echo CASSANDRA_RPC_INTERFACE ${CASSANDRA_RPC_INTERFACE}
 echo CASSANDRA_SEEDS ${CASSANDRA_SEEDS}
 echo CASSANDRA_SEED_PROVIDER ${CASSANDRA_SEED_PROVIDER}
 
+
+JAVA_ARGS=''
 # set the storage directory
 sed -ri 's/^cassandra_storagedir.*/cassandra_storagedir="$CASSANDRA_DATA"/' "$CASSANDRA_HOME/bin/cassandra.in.sh"
 
@@ -112,14 +114,10 @@ if [[ $CASSANDRA_DC && $CASSANDRA_RACK ]]; then
   CASSANDRA_ENDPOINT_SNITCH="GossipingPropertyFileSnitch"
 fi
 
-if [ -n "$CASSANDRA_MAX_HEAP" ]; then
-  sed -ri "s/^(#)?-Xmx[0-9]+.*/-Xmx$CASSANDRA_MAX_HEAP/" "$CASSANDRA_CONF_DIR/jvm.options"
-  sed -ri "s/^(#)?-Xms[0-9]+.*/-Xms$CASSANDRA_MAX_HEAP/" "$CASSANDRA_CONF_DIR/jvm.options"
-fi
-
 if [ -n "$CASSANDRA_REPLACE_NODE" ]; then
    echo "-Dcassandra.replace_address=$CASSANDRA_REPLACE_NODE/" >> "$CASSANDRA_CONF_DIR/jvm.options"
 fi
+
 
 for rackdc in dc rack; do
   var="CASSANDRA_${rackdc^^}"
@@ -141,13 +139,6 @@ for yaml in \
   rpc_address \
   start_rpc \
   key_cache_size_in_mb \
-  concurrent_reads \
-  concurrent_writes \
-  memtable_cleanup_threshold \
-  memtable_allocation_type \
-  memtable_flush_writers \
-  concurrent_compactors \
-  compaction_throughput_mb_per_sec \
   counter_cache_size_in_mb \
   internode_compression \
   endpoint_snitch \
@@ -162,80 +153,57 @@ for yaml in \
   fi
 done
 
-while IFS='=' read -r name value ; do
-  if [[ $name == 'CASSANDRA_YAML_'* ]]; then
-    val="${!name}"
-    yaml=`echo "${name,,}" | cut -c 16-`
-    echo "FOUND $name $yaml $val"
-    sed -ri 's/^(#\s*)?('"$yaml"':).*/\2 '"$val"'/' "$CASSANDRA_CFG"
-  fi
-done < <(env)
+# while IFS='=' read -r name value ; do
+#   if [[ $name == 'CASSANDRA_YAML_'* ]]; then
+#     val="${!name}"
+#     yaml=`echo "${name,,}" | cut -c 16-`
+#     echo "FOUND $name $yaml $val"
+#     sed -ri 's/^(#\s*)?('"$yaml"':).*/\2 '"$val"'/' "$CASSANDRA_CFG"
+#   fi
+# done < <(env)
 
-echo "auto_bootstrap: ${CASSANDRA_AUTO_BOOTSTRAP}" >> $CASSANDRA_CFG
+# echo "auto_bootstrap: ${CASSANDRA_AUTO_BOOTSTRAP}" >> $CASSANDRA_CFG
 
 # set the seed to itself.  This is only for the first pod, otherwise
 # it will be able to get seeds from the seed provider
-if [[ $CASSANDRA_SEEDS == 'false' ]]; then
-  sed -ri 's/- seeds:.*/- seeds: "'"$POD_IP"'"/' $CASSANDRA_CFG
-else # if we have seeds set them.  Probably StatefulSet
-  sed -ri 's/- seeds:.*/- seeds: "'"$CASSANDRA_SEEDS"'"/' $CASSANDRA_CFG
-fi
+# if [[ $CASSANDRA_SEEDS == 'false' ]]; then
+#   sed -ri 's/- seeds:.*/- seeds: "'"$POD_IP"'"/' $CASSANDRA_CFG
+# else # if we have seeds set them.  Probably StatefulSet
+#   sed -ri 's/- seeds:.*/- seeds: "'"$CASSANDRA_SEEDS"'"/' $CASSANDRA_CFG
+# fi
 
-sed -ri 's/- class_name: SEED_PROVIDER/- class_name: '"$CASSANDRA_SEED_PROVIDER"'/' $CASSANDRA_CFG
+# sed -ri 's/- class_name: SEED_PROVIDER/- class_name: '"$CASSANDRA_SEED_PROVIDER"'/' $CASSANDRA_CFG
 
 sed -ri 's/JVM_OPTS.*Xloggc.*//' $CASSANDRA_CONF_DIR/cassandra-env.sh
-if [[ $CASSANDRA_LOG_GC == 'true' ]]; then
-  echo "-XX:+PrintGCDetails" >> $CASSANDRA_CONF_DIR/jvm.options
-  echo "-XX:+PrintGCDateStamps" >> $CASSANDRA_CONF_DIR/jvm.options
-  echo "-XX:+PrintHeapAtGC" >> $CASSANDRA_CONF_DIR/jvm.options
-  echo "-XX:+PrintTenuringDistribution" >> $CASSANDRA_CONF_DIR/jvm.options
-  echo "-XX:+PrintGCApplicationStoppedTime" >> $CASSANDRA_CONF_DIR/jvm.options
-  echo "-XX:+PrintPromotionFailure" >> $CASSANDRA_CONF_DIR/jvm.options
+# if [[ $CASSANDRA_LOG_GC == 'true' ]]; then
+  # echo "-XX:+PrintGCDetails" >> $CASSANDRA_CONF_DIR/jvm.options
+  # echo "-XX:+PrintGCDateStamps" >> $CASSANDRA_CONF_DIR/jvm.options
+  # echo "-XX:+PrintHeapAtGC" >> $CASSANDRA_CONF_DIR/jvm.options
+  # echo "-XX:+PrintTenuringDistribution" >> $CASSANDRA_CONF_DIR/jvm.options
+  # echo "-XX:+PrintGCApplicationStoppedTime" >> $CASSANDRA_CONF_DIR/jvm.options
+  # echo "-XX:+PrintPromotionFailure" >> $CASSANDRA_CONF_DIR/jvm.options
+  # if [[ $CASSANDRA_LOG_GC_VERBOSE == 'true' ]]; then
+  #   echo "-XX:PrintFLSStatistics=1" >> $CASSANDRA_CONF_DIR/jvm.options
+  # fi
 
-  if [[ $CASSANDRA_LOG_GC_VERBOSE == 'true' ]]; then
-    echo "-XX:PrintFLSStatistics=1" >> $CASSANDRA_CONF_DIR/jvm.options
-  fi
-
-  if [[ $CASSANDRA_LOG_TO_FILES == 'true' ]]; then
-    echo "-Xloggc:${CASSANDRA_LOG_PATH}/gc.log" >> $CASSANDRA_CONF_DIR/jvm.options
-    echo "-XX:+UseGCLogFileRotation" >> $CASSANDRA_CONF_DIR/jvm.options
-    echo "-XX:NumberOfGCLogFiles=10" >> $CASSANDRA_CONF_DIR/jvm.options
-    echo "-XX:GCLogFileSize=10M" >> $CASSANDRA_CONF_DIR/jvm.options
-  fi
-fi
+  # if [[ $CASSANDRA_LOG_TO_FILES == 'true' ]]; then
+  #   echo "-Xloggc:${CASSANDRA_LOG_PATH}/gc.log" >> $CASSANDRA_CONF_DIR/jvm.options
+  #   echo "-XX:+UseGCLogFileRotation" >> $CASSANDRA_CONF_DIR/jvm.options
+  #   echo "-XX:NumberOfGCLogFiles=10" >> $CASSANDRA_CONF_DIR/jvm.options
+  #   echo "-XX:GCLogFileSize=10M" >> $CASSANDRA_CONF_DIR/jvm.options
+  # fi
+# fi
 
 # configure logging
 sed -ri 's/.*cassandra_parms=.*-Dlogback.configurationFile.*//' $CASSANDRA_BIN
 sed -ri 's/.*cassandra_parms=.*-Dcassandra.logdir.*//' $CASSANDRA_BIN
-echo "-Dcassandra.logdir=${CASSANDRA_LOG_PATH}" >> $CASSANDRA_CONF_DIR/jvm.options
-# if [[ $CASSANDRA_LOG_TO_FILES == 'true' ]]; then
-#   if [[ $CASSANDRA_LOG_JSON == 'true' ]]; then
-#     echo "-Dlogback.configurationFile=${CASSANDRA_CONF_DIR}/logback-json-files.xml" >> $CASSANDRA_CONF_DIR/jvm.options
-#   else
-#     echo "-Dlogback.configurationFile=${CASSANDRA_CONF_DIR}/logback-files.xml" >> $CASSANDRA_CONF_DIR/jvm.options
-#   fi
-# else
-#   if [[ $CASSANDRA_LOG_JSON == 'true' ]]; then
-#     echo "-Dlogback.configurationFile=${CASSANDRA_CONF_DIR}/logback-json-stdout.xml" >> $CASSANDRA_CONF_DIR/jvm.options
-#   else
-#     echo "-Dlogback.configurationFile=${CASSANDRA_CONF_DIR}/logback-stdout.xml" >> $CASSANDRA_CONF_DIR/jvm.options
-#   fi
-# fi
-if [[ $CASSANDRA_LOG_JSON == 'true' ]]; then
-  if [[ $CASSANDRA_LOGGER_XML_PATH ]]; then
-    echo "-Dlogback.configurationFile=${CASSANDRA_LOGGER_XML_PATH}" >> $CASSANDRA_CONF_DIR/jvm.options
-  else
-    echo "-Dlogback.configurationFile=${CASSANDRA_CONF_DIR}/logback-json-stdout.xml" >> $CASSANDRA_CONF_DIR/jvm.options
-  fi
-fi
 
 # getting WARNING messages with Migration Service
-echo "-Dcassandra.migration_task_wait_in_seconds=${CASSANDRA_MIGRATION_WAIT}" >> $CASSANDRA_CONF_DIR/jvm.options
-echo "-Dcassandra.ring_delay_ms=${CASSANDRA_RING_DELAY}" >> $CASSANDRA_CONF_DIR/jvm.options
+# echo "-Dcassandra.migration_task_wait_in_seconds=${CASSANDRA_MIGRATION_WAIT}" >> $CASSANDRA_CONF_DIR/jvm.options
+# echo "-Dcassandra.ring_delay_ms=${CASSANDRA_RING_DELAY}" >> $CASSANDRA_CONF_DIR/jvm.options
 
 chmod 700 "${CASSANDRA_DATA}"
 chmod 700 "${CASSANDRA_LOG_PATH}"
-chown -c -R cassandra: "${CASSANDRA_DATA}" "${CASSANDRA_CONF_DIR}" "${CASSANDRA_LOG_PATH}"
 
 echo "/etc/resolv.conf"
 cat /etc/resolv.conf
@@ -243,4 +211,4 @@ cat /etc/resolv.conf
 echo "$CASSANDRA_CFG"
 cat $CASSANDRA_CFG
 
-su cassandra -c "$CASSANDRA_BIN -f"
+$CASSANDRA_BIN $JAVA_ARGS -f
