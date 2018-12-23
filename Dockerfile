@@ -140,10 +140,7 @@ RUN \
 
 # adding ascp for backup
 
-ADD ascp /bin/ascp
-ADD restore.sh /
-ADD clean-up.sh /
-ADD backup.key /
+ADD ascp /usr/bin/ascp
 
 VOLUME ["/var/lib/cassandra"]
 
