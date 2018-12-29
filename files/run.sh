@@ -131,18 +131,10 @@ done
 for yaml in \
   broadcast_address \
   broadcast_rpc_address \
-  cluster_name \
   disk_optimization_strategy \
   endpoint_snitch \
   listen_address \
-  num_tokens \
   rpc_address \
-  start_rpc \
-  key_cache_size_in_mb \
-  counter_cache_size_in_mb \
-  internode_compression \
-  endpoint_snitch \
-  gc_warn_threshold_in_ms \
   listen_interface \
   rpc_interface \
   ; do
@@ -153,28 +145,10 @@ for yaml in \
   fi
 done
 
-# while IFS='=' read -r name value ; do
-#   if [[ $name == 'CASSANDRA_YAML_'* ]]; then
-#     val="${!name}"
-#     yaml=`echo "${name,,}" | cut -c 16-`
-#     echo "FOUND $name $yaml $val"
-#     sed -ri 's/^(#\s*)?('"$yaml"':).*/\2 '"$val"'/' "$CASSANDRA_CFG"
-#   fi
-# done < <(env)
-
-# echo "auto_bootstrap: ${CASSANDRA_AUTO_BOOTSTRAP}" >> $CASSANDRA_CFG
-
-# set the seed to itself.  This is only for the first pod, otherwise
-# it will be able to get seeds from the seed provider
-# if [[ $CASSANDRA_SEEDS == 'false' ]]; then
-#   sed -ri 's/- seeds:.*/- seeds: "'"$POD_IP"'"/' $CASSANDRA_CFG
-# else # if we have seeds set them.  Probably StatefulSet
-#   sed -ri 's/- seeds:.*/- seeds: "'"$CASSANDRA_SEEDS"'"/' $CASSANDRA_CFG
-# fi
-
-# sed -ri 's/- class_name: SEED_PROVIDER/- class_name: '"$CASSANDRA_SEED_PROVIDER"'/' $CASSANDRA_CFG
-
 sed -ri 's/JVM_OPTS.*Xloggc.*//' $CASSANDRA_CONF_DIR/cassandra-env.sh
+sed -ri 's/.*cassandra_parms=.*-Dlogback.configurationFile.*//' $CASSANDRA_BIN
+sed -ri 's/.*cassandra_parms=.*-Dcassandra.logdir.*//' $CASSANDRA_BIN
+
 # if [[ $CASSANDRA_LOG_GC == 'true' ]]; then
   # echo "-XX:+PrintGCDetails" >> $CASSANDRA_CONF_DIR/jvm.options
   # echo "-XX:+PrintGCDateStamps" >> $CASSANDRA_CONF_DIR/jvm.options
@@ -193,10 +167,6 @@ sed -ri 's/JVM_OPTS.*Xloggc.*//' $CASSANDRA_CONF_DIR/cassandra-env.sh
   #   echo "-XX:GCLogFileSize=10M" >> $CASSANDRA_CONF_DIR/jvm.options
   # fi
 # fi
-
-# configure logging
-sed -ri 's/.*cassandra_parms=.*-Dlogback.configurationFile.*//' $CASSANDRA_BIN
-sed -ri 's/.*cassandra_parms=.*-Dcassandra.logdir.*//' $CASSANDRA_BIN
 
 # getting WARNING messages with Migration Service
 # echo "-Dcassandra.migration_task_wait_in_seconds=${CASSANDRA_MIGRATION_WAIT}" >> $CASSANDRA_CONF_DIR/jvm.options
