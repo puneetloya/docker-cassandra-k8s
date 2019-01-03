@@ -149,24 +149,18 @@ sed -ri 's/JVM_OPTS.*Xloggc.*//' $CASSANDRA_CONF_DIR/cassandra-env.sh
 sed -ri 's/.*cassandra_parms=.*-Dlogback.configurationFile.*//' $CASSANDRA_BIN
 sed -ri 's/.*cassandra_parms=.*-Dcassandra.logdir.*//' $CASSANDRA_BIN
 
-# if [[ $CASSANDRA_LOG_GC == 'true' ]]; then
-  # echo "-XX:+PrintGCDetails" >> $CASSANDRA_CONF_DIR/jvm.options
-  # echo "-XX:+PrintGCDateStamps" >> $CASSANDRA_CONF_DIR/jvm.options
-  # echo "-XX:+PrintHeapAtGC" >> $CASSANDRA_CONF_DIR/jvm.options
-  # echo "-XX:+PrintTenuringDistribution" >> $CASSANDRA_CONF_DIR/jvm.options
-  # echo "-XX:+PrintGCApplicationStoppedTime" >> $CASSANDRA_CONF_DIR/jvm.options
-  # echo "-XX:+PrintPromotionFailure" >> $CASSANDRA_CONF_DIR/jvm.options
-  # if [[ $CASSANDRA_LOG_GC_VERBOSE == 'true' ]]; then
-  #   echo "-XX:PrintFLSStatistics=1" >> $CASSANDRA_CONF_DIR/jvm.options
-  # fi
+if [[ $CASSANDRA_OPEN_JMX == 'true' ]]; then
+  export LOCAL_JMX=no
+  sed -ri 's/ -Dcom\.sun\.management\.jmxremote\.authenticate=true/ -Dcom\.sun\.management\.jmxremote\.authenticate=false/' $CASSANDRA_CONF_DIR/cassandra-env.sh
+  sed -ri 's/ -Dcom\.sun\.management\.jmxremote\.password\.file=\/etc\/cassandra\/jmxremote\.password//' $CASSANDRA_CONF_DIR/cassandra-env.sh
 
-  # if [[ $CASSANDRA_LOG_TO_FILES == 'true' ]]; then
-  #   echo "-Xloggc:${CASSANDRA_LOG_PATH}/gc.log" >> $CASSANDRA_CONF_DIR/jvm.options
-  #   echo "-XX:+UseGCLogFileRotation" >> $CASSANDRA_CONF_DIR/jvm.options
-  #   echo "-XX:NumberOfGCLogFiles=10" >> $CASSANDRA_CONF_DIR/jvm.options
-  #   echo "-XX:GCLogFileSize=10M" >> $CASSANDRA_CONF_DIR/jvm.options
-  # fi
-# fi
+  echo "JVM_OPTS=\"\$JVM_OPTS -Dcom.sun.management.jmxremote\"" >> $CASSANDRA_CONF_DIR/cassandra-env.sh
+  echo "JVM_OPTS=\"\$JVM_OPTS -Dcom.sun.management.jmxremote.ssl=false\"" >> $CASSANDRA_CONF_DIR/cassandra-env.sh
+  echo "JVM_OPTS=\"\$JVM_OPTS -Dcom.sun.management.jmxremote.local.only=false\"" >> $CASSANDRA_CONF_DIR/cassandra-env.sh
+  echo "JVM_OPTS=\"\$JVM_OPTS -Dcom.sun.management.jmxremote.port=7199\"" >> $CASSANDRA_CONF_DIR/cassandra-env.sh
+  echo "JVM_OPTS=\"\$JVM_OPTS -Dcom.sun.management.jmxremote.rmi.port=7199\"" >> $CASSANDRA_CONF_DIR/cassandra-env.sh
+  echo "JVM_OPTS=\"\$JVM_OPTS -Djava.rmi.server.hostname=$POD_IP\"" >> $CASSANDRA_CONF_DIR/cassandra-env.sh
+fi
 
 # getting WARNING messages with Migration Service
 # echo "-Dcassandra.migration_task_wait_in_seconds=${CASSANDRA_MIGRATION_WAIT}" >> $CASSANDRA_CONF_DIR/jvm.options
