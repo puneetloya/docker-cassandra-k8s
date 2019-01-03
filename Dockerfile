@@ -49,7 +49,7 @@ RUN \
     && export CASSANDRA_VERSION=${CASSANDRA_VERSION:-$CASSANDRA_RELEASE} \
     && export CASSANDRA_HOME=/usr/local/apache-cassandra-${CASSANDRA_VERSION} \
     && apt-get update && apt-get -qq -y install --no-install-recommends \
-        openjdk-8-jre-headless \
+        openjdk-8-jdk-headless \
         libjemalloc1 \
         localepurge \
         wget \
