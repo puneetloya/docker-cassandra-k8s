@@ -53,7 +53,7 @@ RUN \
         libjemalloc1 \
         localepurge \
         wget \
-        jq \
+        jq pigz \
     && wget -q -O - "http://central.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${PROMETHEUS_VERSION}/jmx_prometheus_javaagent-${PROMETHEUS_VERSION}.jar" > /usr/local/share/prometheus-agent.jar \
     && mirror_url=$( wget -q -O - 'https://www.apache.org/dyn/closer.cgi?as_json=1' | jq --raw-output '.preferred' ) \
     && wget -q -O - ${mirror_url}/cassandra/${CASSANDRA_VERSION}/apache-cassandra-${CASSANDRA_VERSION}-bin.tar.gz > /usr/local/apache-cassandra-bin.tar.gz \
@@ -137,10 +137,6 @@ RUN \
     && cat /cassandra.rc >> /home/cassandra/.bashrc \
     && echo 'export ENV=$HOME/.bashrc' >> "$HOME/.profile" \
     && chown -c -R cassandra:cassandra "${CASSANDRA_DATA}" "${CASSANDRA_CONF}" "${CASSANDRA_LOGS}" "/usr/local/apache-cassandra-${CASSANDRA_RELEASE}"
-
-# adding ascp for backup
-
-ADD ascp /usr/bin/ascp
 
 VOLUME ["/var/lib/cassandra"]
 

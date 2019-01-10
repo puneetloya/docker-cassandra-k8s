@@ -1,40 +1,9 @@
 #!/bin/bash
 
-# function alert_failure() {
-#   content=$1
-#   file="${CASSANDRA_CLUSTER_NAME}_$(hostname)"
-#   resource="/$AWS_BUCKET/failures/${file}"
-#   contentType="text/plain"
-#   dateValue=`date -u "+%Y%m%d"`
-#   stringToSign="PUT\n\n${contentType}\n${dateValue}\n${resource}"
-#
-#   stringToSign="PUT\n"
-#   dateStamp=`date -u "+%Y%m%dT%H%M%SZ"`
-#   stringToSign="AWS4-HMAC-SHA256"
-#
-#   # Create Signature Key
-#   keyDate=`echo AWS4${AWS_SECRET_ACCESS_KEY}$dateValue | sha256sum | cut -d " " -f 1`
-#   keyRegion=`echo ${keyDate}${SL_REGION} | sha256sum | cut -d " " -f 1`
-#   keyService=`echo ${keyRegion}s3 | sha256sum | cut -d " " -f 1`
-#   keySign=`echo ${keyService}aws4_request | sha256sum | cut -d " " -f 1`
-#
-#
-#   signature=`echo -en ${stringToSign} | openssl sha1 -hmac ${AWS_SECRET_ACCESS_KEY} -binary | base64`
-#
-#   echo -e ${content} >> $file
-#   curl -X PUT -T "${file}" \
-#     -H "Host: ${AWS_BUCKET}.${S3_ENDPOINT}" \
-#     -H "Date: ${dateValue}" \
-#     -H "Content-Type: ${contentType}" \
-#     -H "Authorization: AWS ${AWS_ACCESS_KEY_ID}:${signature}" \
-#     https://${AWS_BUCKET}.s3-eu-west-1.amazonaws.com/failures/${file}
-#   rm -f $file
-# }
-
 function clean() {
   echo "[+] Cleaning"
   /usr/local/apache-cassandra/bin/nodetool clearsnapshot
-  rm -Rf /snap /tmp/snapshot2s3.log
+  rm -r /var/backup/cassandra/`hostname`/*.tar.gz
 }
 
 # Create lock or stop if already present
@@ -56,10 +25,15 @@ function backup() {
 
   export LC_ALL=C
   snap_name="snapshot_$(date +%Y-%m-%d_%H-%M-%S)"
+  prefix_dir="/usr/local/apache-cassandra"
+  cassandra_dir="/var/lib/cassandra"
+  keyspace="${CASSANDRA_KEYSPACE}"
+  host=`hostname`
+  backup_dir="/var/backup/cassandra/${host}"
 
   # Create snapshot
   echo "[+] Starting Snapshot"
-  /usr/local/apache-cassandra/bin/nodetool snapshot -t $snap_name > /tmp/snapshot2s3.log 2>&1
+  /usr/local/apache-cassandra/bin/nodetool snapshot -t ${snap_name} > /tmp/snapshot2s3.log 2>&1
   if [ $? != 0 ] ; then
     echo "Error during snapshot, please check manually, cleaning before exit"
     #alert_failure "Error during snaptshot:\n$(cat /tmp/snapshot2s3.log)"
@@ -69,44 +43,28 @@ function backup() {
   fi
   cat /tmp/snapshot2s3.log
 
-  # Create temporary folder
-  find /var/lib/cassandra/data -name $snap_name -exec mkdir -p /snap/{} \;
 
-  # Make snapshot symlinks
-  cd /snap
-  for i in $(find . -name $snap_name | sed 's/^.\///') ; do
-    rmdir /snap/$i
-    ln -s /$i /snap/$i
+  find /var/lib/cassandra/data -name ${snap_name} -print | while read f; do
+    snap_dir=`echo $f | sed "s/snapshots\/${snap_name}//g"`
+    mkdir -p ${cassandra_dir}/${snap_name}/${snap_dir}
+    cp -r $f/* ${cassandra_dir}/${snap_name}/${snap_dir}
   done
 
   # Dump schemas
-  mkdir -p /snap/var/lib/cassandra/schemas
-  for schema in $(cqlsh -e "select keyspace_name from system_schema.keyspaces;" | egrep "^\s+" | awk '{ print $1 }' | grep -v keyspace_name) ; do
-    cqlsh -e "describe keyspace ${schema}" > /snap/var/lib/cassandra/schemas/${schema}.cql
-    if [ $? != 0 ] ; then
-      echo "Error while dumping schema ${schema}"
-      #alert_failure "Error while dumping ${schema} schema"
-      clean
-      release_lock
-      exit 1
-    fi
-  done
-
-  tar -cvf ${snap_name}.tar.gz /snap/
-  echo "[+] Running ascp to transfer to s3"
-  if ascp -L / -d -l 500M --mode=send -P 33001 --user ${BACKUP_USER} --host ${BACKUP_HOST} -i /backup.key --tags "{\"aspera\": { \"node\": { \"file_id\":\"${BACKUP_FOLDER_ID}\",\"access_key\":\"${ACCESS_KEY}\" }}}" -d ${snap_name}.tar.gz '/'; then
-    echo '{ "message" : "Cassandra backup okay", "tags": "cassandra_backup" }'
-    exit 0
-  else
-    echo '{ "mesaage" : "Cassandra backup FAILED.", "tags": "cassandra_backup"  }'
-    cat ./aspera-scp-transfer.log
-    exit 1
-  fi
-  rm -rf ${snap_name}.tar.gz /snap/
-  if [ $? != 0 ] ; then
-    echo "Error while backup $CLUSTER_DOMAIN/$CASSANDRA_CLUSTER_NAME/$(hostname)"
-    #alert_failure "Error with duplicity\n$(cat /tmp/snapshot2s3.log)"
-  fi
+  # mkdir -p ${prefix_dir}/snap/var/lib/cassandra/schemas
+  # for schema in $(cqlsh -e "select keyspace_name from system_schema.keyspaces;" | egrep "^\s+" | awk '{ print $1 }' | grep -v keyspace_name) ; do
+  #   cqlsh -e "describe keyspace ${schema}" > ${prefix_dir}/snap/var/lib/cassandra/schemas/${schema}.cql
+  #   if [ $? != 0 ] ; then
+  #     echo "Error while dumping schema ${schema}"
+  #     #alert_failure "Error while dumping ${schema} schema"
+  #     clean
+  #     release_lock
+  #     exit 1
+  #   fi
+  # done
+  mkdir -p ${backup_dir}
+  tar -cf -  ${cassandra_dir}/${snap_name}  | pigz -9 > ${cassandra_dir}/${snap_name}.tar.gz
+  mv ${cassandra_dir}/${snap_name}.tar.gz ${backup_dir}
   cat /tmp/snapshot2s3.log
 
   # Clean snapshot
@@ -117,16 +75,9 @@ function backup() {
 function restore() {
   create_lock
 
-  echo "[+] Running duplicity to restore from AWS"
-  # duplicity {{ default "--archive-dir /var/lib/cassandra/.duplicity --allow-source-mismatch --s3-european-buckets --s3-use-new-style --copy-links --num-retries 3 --s3-use-multiprocessing --s3-multipart-chunk-size 100 --volsize 1024" .Values.cassandraBackup.duplicityOptions }} --time $RESTORE_TIME {{ .Values.cassandraBackup.awsDestinationPath }} {{ .Values.cassandraBackup.restoreFolder }} > /tmp/snapshot2s3.log 2>&1
-  if [ $? != 0 ] ; then
-    echo "Error while restoring $CLUSTER_DOMAIN/$CASSANDRA_CLUSTER_NAME/$(hostname)"
-    #alert_failure "Error with duplicity\n$(cat /tmp/snapshot2s3.log)"
-  fi
+
   cat /tmp/snapshot2s3.log
 
-  # Clean snapshot
-  clean
   release_lock
 }
 
@@ -139,8 +90,6 @@ function help() {
   exit 1
 }
 
-    # Check number of args
-test "$#" -lt 5 && help
 
 source /usr/local/apache-cassandra/scripts/envVars.sh
 export AWS_ACCESS_KEY_ID=$2
