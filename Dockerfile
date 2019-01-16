@@ -131,7 +131,7 @@ RUN \
     adduser -u 1099 --disabled-password --gecos '' --disabled-login cassandra \
     && mkdir -p /var/lib/cassandra/ /var/log/cassandra/ /etc/cassandra/triggers \
     && chmod +x /sbin/dumb-init /ready-probe.sh \
-    && mv /logback-stdout.xml /logback-json-files.xml /logback-json-stdout.xml /logback-files.xml /cassandra.yaml /jvm.options /prometheus.yaml /etc/cassandra/ \
+    && mv /backup.sh /logback-stdout.xml /logback-json-files.xml /logback-json-stdout.xml /logback-files.xml /cassandra.yaml /jvm.options /prometheus.yaml /etc/cassandra/ \
     && mv /usr/local/apache-cassandra/conf/cassandra-env.sh /etc/cassandra/ \
     && chown cassandra: /ready-probe.sh \
     && cat /cassandra.rc >> /home/cassandra/.bashrc \

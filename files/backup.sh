@@ -1,11 +1,14 @@
 #!/bin/bash
 
-function clean() {
+function clean_snapshot() {
   echo "[+] Cleaning"
   /usr/local/apache-cassandra/bin/nodetool clearsnapshot
-  rm -r /var/backup/cassandra/`hostname`/*.tar.gz
 }
 
+function clean_backup_dir() {
+  echo "cleaning backup dir"
+  rm -f /var/backup/cassandra/`hostname`/*.tar.gz
+}
 # Create lock or stop if already present
 function create_lock() {
   if [ -f /tmp/snapshot2s3.lock ] ; then
@@ -21,7 +24,8 @@ function release_lock() {
 function backup() {
 
   create_lock
-  clean
+  clean_snapshot
+  clean_backup_dir
 
   export LC_ALL=C
   snap_name="snapshot_$(date +%Y-%m-%d_%H-%M-%S)"
@@ -37,7 +41,7 @@ function backup() {
   if [ $? != 0 ] ; then
     echo "Error during snapshot, please check manually, cleaning before exit"
     #alert_failure "Error during snaptshot:\n$(cat /tmp/snapshot2s3.log)"
-    clean
+    clean_snapshot
     release_lock
     exit 1
   fi
@@ -63,12 +67,12 @@ function backup() {
   #   fi
   # done
   mkdir -p ${backup_dir}
-  tar -cf -  ${cassandra_dir}/${snap_name}  | pigz -9 > ${cassandra_dir}/${snap_name}.tar.gz
+  tar --remove-files -cf  -  ${cassandra_dir}/${snap_name}  | pigz -9 > ${cassandra_dir}/${snap_name}.tar.gz
   mv ${cassandra_dir}/${snap_name}.tar.gz ${backup_dir}
   cat /tmp/snapshot2s3.log
 
   # Clean snapshot
-  clean
+  clean_snapshot
   release_lock
 }
 
