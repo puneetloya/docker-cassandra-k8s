@@ -33,9 +33,9 @@ ENV \
     CASSANDRA_CONF=/etc/cassandra \
     CASSANDRA_DATA=/var/lib/cassandra \
     CASSANDRA_LOGS=/var/log/cassandra \
-    CASSANDRA_RELEASE=3.11.3 \
+    CASSANDRA_RELEASE=3.11.4 \
     CASSANDRA_PATH=/usr/local/apache-cassandra \
-    CASSANDRA_SHA=d82e0670cb41b091e88fff55250ce945c4ea026c87a5517d3cf7b6b351d5e2ba \
+    CASSANDRA_SHA=5d598e23c3ffc4db0301ec2b313061e3208fae0f9763d4b47888237dd9069987 \
     JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
     DI_VERSION=1.2.0 \
     DI_SHA=81231da1cd074fdc81af62789fead8641ef3f24b6b07366a1c34e5b059faf363 \
@@ -53,7 +53,7 @@ RUN \
         libjemalloc1 \
         localepurge \
         wget \
-        jq pigz \
+        jq \
     && wget -q -O - "http://central.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${PROMETHEUS_VERSION}/jmx_prometheus_javaagent-${PROMETHEUS_VERSION}.jar" > /usr/local/share/prometheus-agent.jar \
     && mirror_url=$( wget -q -O - 'https://www.apache.org/dyn/closer.cgi?as_json=1' | jq --raw-output '.preferred' ) \
     && wget -q -O - ${mirror_url}/cassandra/${CASSANDRA_VERSION}/apache-cassandra-${CASSANDRA_VERSION}-bin.tar.gz > /usr/local/apache-cassandra-bin.tar.gz \
@@ -133,6 +133,10 @@ RUN \
     && chmod +x /sbin/dumb-init /ready-probe.sh \
     && mv /backup.sh /logback-stdout.xml /logback-json-files.xml /logback-json-stdout.xml /logback-files.xml /cassandra.yaml /jvm.options /prometheus.yaml /etc/cassandra/ \
     && mv /usr/local/apache-cassandra/conf/cassandra-env.sh /etc/cassandra/ \
+    # For the backup jar you can build it with maven from here:
+    # https://github.com/puneetloya/cassandra-backup/tree/feature/jenkins-support
+    && mv /backup-0.1-final.jar /usr/local/share/ \
+    && mv /cassandra-backup /usr/bin/ \
     && chown cassandra: /ready-probe.sh \
     && cat /cassandra.rc >> /home/cassandra/.bashrc \
     && echo 'export ENV=$HOME/.bashrc' >> "$HOME/.profile" \
