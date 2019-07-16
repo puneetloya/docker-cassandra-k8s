@@ -33,8 +33,9 @@ ENV \
     CASSANDRA_CONF=/etc/cassandra \
     CASSANDRA_DATA=/var/lib/cassandra \
     CASSANDRA_LOGS=/var/log/cassandra \
-    CASSANDRA_RELEASE=3.11.3 \
-    CASSANDRA_SHA=d82e0670cb41b091e88fff55250ce945c4ea026c87a5517d3cf7b6b351d5e2ba \
+    CASSANDRA_RELEASE=3.11.4 \
+    CASSANDRA_PATH=/usr/local/apache-cassandra \
+    CASSANDRA_SHA=5d598e23c3ffc4db0301ec2b313061e3208fae0f9763d4b47888237dd9069987 \
     JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
     DI_VERSION=1.2.0 \
     DI_SHA=81231da1cd074fdc81af62789fead8641ef3f24b6b07366a1c34e5b059faf363 \
@@ -42,15 +43,13 @@ ENV \
     LOGENCODER_VERSION=4.10-SNAPSHOT \
     LOGENCODER_SHA=89be27bea7adc05b68c052a27b08c594a9f8e354185acbfd7a7b5f04c7cd9e20
 
-COPY files /
-
 RUN \
     set -ex \
     && echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections \
     && export CASSANDRA_VERSION=${CASSANDRA_VERSION:-$CASSANDRA_RELEASE} \
     && export CASSANDRA_HOME=/usr/local/apache-cassandra-${CASSANDRA_VERSION} \
     && apt-get update && apt-get -qq -y install --no-install-recommends \
-        openjdk-8-jre-headless \
+        openjdk-8-jdk-headless \
         libjemalloc1 \
         localepurge \
         wget \
@@ -61,17 +60,11 @@ RUN \
     && echo "$CASSANDRA_SHA /usr/local/apache-cassandra-bin.tar.gz" | sha256sum -c - \
     && tar -xzf /usr/local/apache-cassandra-bin.tar.gz -C /usr/local \
     && rm /usr/local/apache-cassandra-bin.tar.gz \
-    && ln -s $CASSANDRA_HOME /usr/local/apache-cassandra \
+    && ln -s $CASSANDRA_HOME $CASSANDRA_PATH \
     && wget -q -O - "https://github.com/mstump/logstash-logback-encoder/releases/download/${LOGENCODER_VERSION}/logstash-logback-encoder-${LOGENCODER_VERSION}.jar" > /usr/local/apache-cassandra/lib/log-encoder.jar \
     && echo "$LOGENCODER_SHA /usr/local/apache-cassandra/lib/log-encoder.jar" | sha256sum -c - \
     && wget -q -O - https://github.com/Yelp/dumb-init/releases/download/v${DI_VERSION}/dumb-init_${DI_VERSION}_amd64 > /sbin/dumb-init \
     && echo "$DI_SHA  /sbin/dumb-init" | sha256sum -c - \
-    && adduser --disabled-password --no-create-home --gecos '' --disabled-login cassandra \
-    && mkdir -p /var/lib/cassandra/ /var/log/cassandra/ /etc/cassandra/triggers \
-    && chmod +x /sbin/dumb-init /ready-probe.sh \
-    && mv /logback-stdout.xml /logback-json-files.xml /logback-json-stdout.xml /logback-files.xml /cassandra.yaml /jvm.options /prometheus.yaml /etc/cassandra/ \
-    && mv /usr/local/apache-cassandra/conf/cassandra-env.sh /etc/cassandra/ \
-    && chown cassandra: /ready-probe.sh \
     && if [ -n "$DEV_CONTAINER" ]; then apt-get -y --no-install-recommends install python; else rm -rf  $CASSANDRA_HOME/pylib; fi \
     && apt-get -y purge wget jq localepurge \
     && apt-get -y autoremove \
@@ -131,6 +124,23 @@ RUN \
         /usr/lib/jvm/java-8-openjdk-amd64/man \
         /usr/lib/jvm/java-8-openjdk-amd64/jre/THIRD_PARTY_README \
         /usr/lib/jvm/java-8-openjdk-amd64/jre/ASSEMBLY_EXCEPTION
+
+COPY files /
+
+RUN \
+    adduser -u 1099 --disabled-password --gecos '' --disabled-login cassandra \
+    && mkdir -p /var/lib/cassandra/ /var/log/cassandra/ /etc/cassandra/triggers \
+    && chmod +x /sbin/dumb-init /ready-probe.sh \
+    && mv /backup.sh /logback-stdout.xml /logback-json-files.xml /logback-json-stdout.xml /logback-files.xml /cassandra.yaml /jvm.options /prometheus.yaml /etc/cassandra/ \
+    && mv /usr/local/apache-cassandra/conf/cassandra-env.sh /etc/cassandra/ \
+    # For the backup jar you can build it with maven from here:
+    # https://github.com/puneetloya/cassandra-backup/tree/feature/jenkins-support
+    && mv /backup-0.1-final.jar /usr/local/share/ \
+    && mv /cassandra-backup /usr/bin/ \
+    && chown cassandra: /ready-probe.sh \
+    && cat /cassandra.rc >> /home/cassandra/.bashrc \
+    && echo 'export ENV=$HOME/.bashrc' >> "$HOME/.profile" \
+    && chown -c -R cassandra:cassandra "${CASSANDRA_DATA}" "${CASSANDRA_CONF}" "${CASSANDRA_LOGS}" "/usr/local/apache-cassandra-${CASSANDRA_RELEASE}"
 
 VOLUME ["/var/lib/cassandra"]
 
