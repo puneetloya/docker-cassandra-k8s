@@ -1,0 +1,37 @@
+include:
+  - project: devops/gitlab-ci-common
+    ref: master
+    file: /public/_variables.yml
+  - project: devops/gitlab-ci-common
+    ref: master
+    file: /public/_commitlint.yml
+  - project: devops/gitlab-ci-common
+    ref: master
+    file: /public/docker.yml
+
+precheck:commitlint:
+  script:
+    - commitlint --from origin/master
+
+.script: &script_template
+  script:
+    - export VERSION=${VERSION:-$(cat VERSION)}
+    - docker pull ${REGISTRY}/cassandra:latest || true
+    - docker pull ${REGISTRY}/cassandra:${VERSION}-latest || true
+    - >-
+      docker-build
+      --dockerfile "${CI_PROJECT_DIR}/${DOCKERFILE}"
+      --args "--pull,--build-arg=VERSION=${VERSION},--cache-from=${REGISTRY}/cassandra:latest,--cache-from=${REGISTRY}/cassandra:${VERSION}-latest"
+      --source-directory "${CI_PROJECT_DIR}"
+      --registry ${REGISTRY}
+      --tags latest,${VERSION}-${CI_COMMIT_SHA:0:8},${VERSION}-latest
+      --name cassandra
+      --no-prompt
+      --push
+      --debug
+
+build:
+  <<: *script_template
+  variables:
+    DOCKERFILE: Dockerfile
+    REGISTRY: us.icr.io/aoc-devops
