@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM gcr.io/google_containers/ubuntu-slim:0.12
+FROM openjdk:8-jre-slim
 
 ARG BUILD_DATE
 ARG VCS_REF
@@ -36,7 +36,6 @@ ENV \
     CASSANDRA_RELEASE=3.11.4 \
     CASSANDRA_PATH=/usr/local/apache-cassandra \
     CASSANDRA_SHA=5d598e23c3ffc4db0301ec2b313061e3208fae0f9763d4b47888237dd9069987 \
-    JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
     DI_VERSION=1.2.0 \
     DI_SHA=81231da1cd074fdc81af62789fead8641ef3f24b6b07366a1c34e5b059faf363 \
     PROMETHEUS_VERSION=0.3.1 \
@@ -45,18 +44,16 @@ ENV \
 
 RUN \
     set -ex \
-    && echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections \
     && export CASSANDRA_VERSION=${CASSANDRA_VERSION:-$CASSANDRA_RELEASE} \
     && export CASSANDRA_HOME=/usr/local/apache-cassandra-${CASSANDRA_VERSION} \
     && apt-get update && apt-get -qq -y install --no-install-recommends \
-        openjdk-8-jdk-headless \
-        libjemalloc1 \
+        libc6 \
+        libjemalloc2 \
         localepurge \
         wget \
         jq \
-    && wget -q -O - "http://central.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${PROMETHEUS_VERSION}/jmx_prometheus_javaagent-${PROMETHEUS_VERSION}.jar" > /usr/local/share/prometheus-agent.jar \
-    && mirror_url=$( wget -q -O - 'https://www.apache.org/dyn/closer.cgi?as_json=1' | jq --raw-output '.preferred' ) \
-    && wget -q -O - ${mirror_url}/cassandra/${CASSANDRA_VERSION}/apache-cassandra-${CASSANDRA_VERSION}-bin.tar.gz > /usr/local/apache-cassandra-bin.tar.gz \
+    && wget -q -O - "https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.13.0/jmx_prometheus_javaagent-0.13.0.jar" > /usr/local/share/prometheus-agent.jar \
+    && wget -q -O - "https://archive.apache.org/dist/cassandra/${CASSANDRA_VERSION}/apache-cassandra-${CASSANDRA_VERSION}-bin.tar.gz" > /usr/local/apache-cassandra-bin.tar.gz \
     && echo "$CASSANDRA_SHA /usr/local/apache-cassandra-bin.tar.gz" | sha256sum -c - \
     && tar -xzf /usr/local/apache-cassandra-bin.tar.gz -C /usr/local \
     && rm /usr/local/apache-cassandra-bin.tar.gz \
@@ -91,39 +88,7 @@ RUN \
         /usr/share/doc/ \
         /usr/share/doc-base/ \
         /usr/share/man/ \
-        /tmp/* \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/plugin \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/javaws \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/jjs \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/orbd \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/pack200 \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/policytool \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/rmid \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/rmiregistry \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/servertool \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/tnameserv \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/unpack200 \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/javaws.jar \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/deploy* \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/desktop \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/*javafx* \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/*jfx* \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/libdecora_sse.so \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/libprism_*.so \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/libfxplugins.so \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/libglass.so \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/libgstreamer-lite.so \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/libjavafx*.so \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/libjfx*.so \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/ext/jfxrt.jar \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/ext/nashorn.jar \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/oblique-fonts \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/plugin.jar \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/man \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/images \
-        /usr/lib/jvm/java-8-openjdk-amd64/man \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/THIRD_PARTY_README \
-        /usr/lib/jvm/java-8-openjdk-amd64/jre/ASSEMBLY_EXCEPTION
+        /tmp/*
 
 COPY files /
 
@@ -135,7 +100,6 @@ RUN \
     && mv /usr/local/apache-cassandra/conf/cassandra-env.sh /etc/cassandra/ \
     # For the backup jar you can build it with maven from here:
     # https://github.com/puneetloya/cassandra-backup/tree/feature/jenkins-support
-    && mv /backup-0.1-final.jar /usr/local/share/ \
     && mv /cassandra-backup /usr/bin/ \
     && chown cassandra: /ready-probe.sh \
     && cat /cassandra.rc >> /home/cassandra/.bashrc \
